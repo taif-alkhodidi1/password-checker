@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مدقق كلمات المرور | Password Checker</title>
+<meta name="description" content="فحص قوة كلمة المرور والتحقق من تسريبها — بأمان تام داخل المتصفح">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1118; --bg2:#111a24; --card:#15212d; --line:#22313f;
+    --text:#e6edf3; --muted:#8b9bab; --accent:#ec4828; --accent2:#4cc9f0;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.8;min-height:100vh;display:flex;flex-direction:column}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .wrap{width:100%;max-width:620px;margin:auto;padding:40px 20px;flex:1}
+
+  header{text-align:center;margin-bottom:34px}
+  header .shield{font-size:2.6rem}
+  header h1{font-size:1.7rem;margin:8px 0 6px}
+  header p{color:var(--muted);font-size:.95rem}
+  .lang{position:fixed;top:16px;inset-inline-end:16px;border:1px solid var(--line);background:var(--card);color:var(--text);padding:6px 14px;border-radius:8px;cursor:pointer;font-family:inherit}
+  .lang:hover{border-color:var(--accent)}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:20px}
+  label{display:block;font-size:.9rem;color:var(--muted);margin-bottom:10px}
+  .field{position:relative}
+  input[type=password],input[type=text]{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:14px 46px 14px 16px;font-size:1rem;font-family:'JetBrains Mono',monospace;direction:ltr;text-align:left}
+  input:focus{outline:none;border-color:var(--accent)}
+  .toggle{position:absolute;inset-inline-end:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem}
+
+  .meter{height:10px;background:var(--bg2);border-radius:999px;overflow:hidden;margin:20px 0 10px}
+  .meter i{display:block;height:100%;width:0;border-radius:999px;transition:width .4s,background .4s}
+  .verdict{display:flex;justify-content:space-between;align-items:center;font-size:.95rem}
+  .verdict b{font-size:1.05rem}
+
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+  .stat{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .stat span{display:block;color:var(--muted);font-size:.8rem}
+  .stat b{font-size:1.05rem}
+  .stat b.crack{font-size:.95rem}
+
+  .checks{margin-top:18px;display:flex;flex-direction:column;gap:9px}
+  .chk{display:flex;align-items:center;gap:10px;font-size:.92rem;color:var(--muted)}
+  .chk .dot{width:18px;height:18px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:.7rem;background:var(--bg2);border:1px solid var(--line)}
+  .chk.ok{color:var(--text)}
+  .chk.ok .dot{background:rgba(61,220,151,.15);border-color:var(--accent);color:var(--accent)}
+
+  .btn{width:100%;padding:13px;border-radius:10px;font-weight:600;border:none;cursor:pointer;font-family:inherit;font-size:1rem;background:var(--accent);color:#06210f;transition:.2s}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .result{margin-top:16px;padding:14px 16px;border-radius:10px;font-size:.95rem;display:none}
+  .result.show{display:block}
+  .result.safe{background:rgba(61,220,151,.12);border:1px solid var(--accent);color:var(--accent)}
+  .result.leaked{background:rgba(255,95,87,.12);border:1px solid #ff5f57;color:#ff9a94}
+  .result.err{background:rgba(247,217,76,.1);border:1px solid #f7d94c;color:#f7d94c}
+
+  .note{display:flex;gap:10px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:.85rem;color:var(--muted);margin-top:14px}
+  .note b{color:var(--accent2)}
+
+  footer{text-align:center;color:var(--muted);font-size:.8rem;padding:20px}
+</style>
+</head>
+<body>
+<button class="lang" id="langBtn">EN</button>
+
+<div class="wrap">
+  <header>
+    <div class="shield">🛡️</div>
+    <h1 data-i18n="title">مدقق كلمات المرور</h1>
+    <p data-i18n="sub">افحص قوة كلمة مرورك وتحقق من تسريبها — كل شيء يتم داخل متصفحك</p>
+  </header>
+
+  <!-- فحص القوة -->
+  <div class="panel">
+    <label data-i18n="label">اكتب كلمة المرور للفحص</label>
+    <div class="field">
+      <input type="password" id="pw" autocomplete="off" spellcheck="false" placeholder="••••••••••">
+      <button class="toggle" id="toggle" aria-label="إظهار"></button>
+    </div>
+
+    <div class="meter"><i id="bar"></i></div>
+    <div class="verdict">
+      <span data-i18n="strength">القوة</span>
+      <b id="verdict">—</b>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><span data-i18n="len">الطول</span><b id="len">0</b></div>
+      <div class="stat"><span data-i18n="entropy">العشوائية (بت)</span><b id="entropy">0</b></div>
+      <div class="stat" style="grid-column:1/-1"><span data-i18n="crack">الوقت التقريبي لكسرها</span><b class="crack" id="crack">—</b></div>
+    </div>
+
+    <div class="checks" id="checks"></div>
+  </div>
+
+  <!-- فحص التسريب -->
+  <div class="panel">
+    <label data-i18n="breachLabel">تحقق من تسريب كلمة المرور في اختراقات معروفة</label>
+    <button class="btn" id="breachBtn" data-i18n="breachBtn">تحقّق الآن</button>
+    <div class="result" id="breachResult"></div>
+    <div class="note">
+      <span>🔒</span>
+      <span data-i18n="privacy"><b>خصوصيتك محمية:</b> لا تُرسَل كلمة مرورك أبدًا. نحسب بصمة SHA-1 ونرسل أول 5 خانات منها فقط (تقنية k-anonymity عبر Have I Been Pwned).</span>
+    </div>
+  </div>
+</div>
+
+<footer class="mono">Built by Taif Alkhodidi · HTML · CSS · JS</footer>
+
+<script>
+/* ============ النصوص بلغتين ============ */
+const I = {
+  ar:{
+    title:"مدقق كلمات المرور",
+    sub:"افحص قوة كلمة مرورك وتحقق من تسريبها — كل شيء يتم داخل متصفحك",
+    label:"اكتب كلمة المرور للفحص",
+    strength:"القوة", len:"الطول", entropy:"العشوائية (بت)", crack:"الوقت التقريبي لكسرها",
+    breachLabel:"تحقق من تسريب كلمة المرور في اختراقات معروفة",
+    breachBtn:"تحقّق الآن",
+    privacy:"<b>خصوصيتك محمية:</b> لا تُرسَل كلمة مرورك أبدًا. نحسب بصمة SHA-1 ونرسل أول 5 خانات منها فقط (تقنية k-anonymity عبر Have I Been Pwned).",
+    verdicts:["ضعيفة جدًا","ضعيفة","متوسطة","قوية","قوية جدًا"],
+    crackMap:["لحظية","لحظية","دقائق","ساعات","أيام","سنوات","قرون"],
+    checks:{
+      len:"٨ أحرف على الأقل (يُفضّل ١٢+)",
+      upper:"حرف كبير (A-Z)",
+      lower:"حرف صغير (a-z)",
+      digit:"رقم (0-9)",
+      symbol:"رمز خاص (!@#$…)",
+      common:"ليست من كلمات المرور الشائعة"
+    },
+    empty:"اكتب كلمة المرور أولًا",
+    checking:"جاري التحقق…",
+    safe:" ممتاز! لم تظهر هذه الكلمة في أي تسريب معروف.",
+    leaked:n=>`⚠️ تحذير! ظهرت هذه الكلمة في تسريبات بيانات ${n.toLocaleString('ar')} مرة. غيّريها فورًا ولا تستخدميها.`,
+    err:"تعذّر الاتصال بخدمة التحقق. تأكد من الإنترنت ."
+  },
+  en:{
+    title:"Password Checker",
+    sub:"Check your password strength and whether it has been breached — all inside your browser",
+    label:"Enter a password to check",
+    strength:"Strength", len:"Length", entropy:"Entropy (bits)", crack:"Estimated time to crack",
+    breachLabel:"Check if this password appears in known data breaches",
+    breachBtn:"Check now",
+    privacy:"<b>Your privacy is safe:</b> your password is never sent. We hash it with SHA-1 and send only the first 5 characters (k-anonymity via Have I Been Pwned).",
+    verdicts:["Very weak","Weak","Fair","Strong","Very strong"],
+    crackMap:["instant","instant","minutes","hours","days","years","centuries"],
+    checks:{
+      len:"At least 8 characters (12+ recommended)",
+      upper:"Uppercase letter (A-Z)",
+      lower:"Lowercase letter (a-z)",
+      digit:"Number (0-9)",
+      symbol:"Special symbol (!@#$…)",
+      common:"Not a common password"
+    },
+    empty:"Enter a password first",
+    checking:"Checking…",
+    safe:"Great! This password was not found in any known breach.",
+    leaked:n=>`⚠️ Warning! This password appeared in data breaches ${n.toLocaleString('en')} times. Change it immediately and don't reuse it.`,
+    err:"Could not reach the breach service. Check your connection and try again."
+  }
+};
+let lang='ar';
+const $=id=>document.getElementById(id);
+
+/* ============ عينة من أشهر كلمات المرور ============ */
+const COMMON=new Set(["123456","password","123456789","12345678","12345","qwerty","111111","123123","abc123","1234567","password1","iloveyou","000000","qwerty123","admin","welcome","monkey","dragon","letmein","football","princess","sunshine","1q2w3e4r","123321","654321"]);
+
+/* ============ تحليل القوة ============ */
+function analyze(pw){
+  const checks={
+    len: pw.length>=8,
+    upper:/[A-Z]/.test(pw),
+    lower:/[a-z]/.test(pw),
+    digit:/[0-9]/.test(pw),
+    symbol:/[^A-Za-z0-9]/.test(pw),
+    common: pw!=='' && !COMMON.has(pw.toLowerCase())
+  };
+
+  // حجم مجموعة الأحرف لحساب الإنتروبي
+  let pool=0;
+  if(/[a-z]/.test(pw))pool+=26;
+  if(/[A-Z]/.test(pw))pool+=26;
+  if(/[0-9]/.test(pw))pool+=10;
+  if(/[^A-Za-z0-9]/.test(pw))pool+=33;
+  const entropy = (pw.length && pool) ? Math.round(pw.length*Math.log2(pool)) : 0;
+
+  // درجة من 0 إلى 4
+  let score=0;
+  if(pw.length===0) score=0;
+  else if(COMMON.has(pw.toLowerCase())) score=0;
+  else if(entropy<28) score=0;
+  else if(entropy<40) score=1;
+  else if(entropy<60) score=2;
+  else if(entropy<80) score=3;
+  else score=4;
+  if(pw.length && pw.length<8 && score>1) score=1; // قصيرة = تُخفَّض
+
+  return {checks,entropy,score};
+}
+
+/* ============ تقدير وقت الكسر ============ */
+function crackText(entropy){
+  const guesses=Math.pow(2,entropy)/2;   // المتوسط = نصف الاحتمالات
+  const secs=guesses/1e10;               // مهاجم يجرّب 10 مليار محاولة/ثانية
+  const t=I[lang].crackMap;
+  if(secs<1)return t[0];
+  if(secs<60)return t[1];
+  if(secs<3600)return t[2];
+  if(secs<86400)return t[3];
+  if(secs<86400*365)return t[4];
+  if(secs<86400*365*100)return t[5];
+  return t[6];
+}
+
+const COLORS=['#ff5f57','#febc2e','#f7d94c','#4cc9f0','#3ddc97'];
+
+/* ============ عرض النتيجة ============ */
+function render(){
+  const pw=$('pw').value;
+  const {checks,entropy,score}=analyze(pw);
+  const t=I[lang];
+
+  $('len').textContent=pw.length;
+  $('entropy').textContent=entropy;
+  $('crack').textContent= pw?crackText(entropy):'—';
+
+  $('bar').style.width = pw ? ((score+1)/5*100)+'%' : '0';
+  $('bar').style.background = COLORS[score];
+  $('verdict').textContent = pw ? t.verdicts[score] : '—';
+  $('verdict').style.color = pw ? COLORS[score] : 'var(--text)';
+
+  const box=$('checks'); box.innerHTML='';
+  for(const k in t.checks){
+    const ok=checks[k];
+    const d=document.createElement('div');
+    d.className='chk'+(ok?' ok':'');
+    d.innerHTML=`<span class="dot">${ok?'✓':''}</span><span>${t.checks[k]}</span>`;
+    box.appendChild(d);
+  }
+}
+
+/* ============ فحص التسريب (HIBP k-anonymity) ============ */
+async function sha1(str){
+  const buf=await crypto.subtle.digest('SHA-1',new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+async function checkBreach(){
+  const pw=$('pw').value;
+  const r=$('breachResult'), btn=$('breachBtn'), t=I[lang];
+  if(!pw){ r.className='result show err'; r.textContent=t.empty; return; }
+  btn.disabled=true;
+  r.className='result show err'; r.textContent=t.checking;
+  try{
+    const hash=await sha1(pw);
+    const prefix=hash.slice(0,5), suffix=hash.slice(5);
+    // نرسل أول 5 خانات فقط — السيرفر ما يعرف كلمة مرورك
+    const res=await fetch('https://api.pwnedpasswords.com/range/'+prefix);
+    const body=await res.text();
+    let count=0;
+    body.split('\n').forEach(line=>{
+      const [s,c]=line.trim().split(':');
+      if(s===suffix) count=parseInt(c,10);
+    });
+    if(count>0){ r.className='result show leaked'; r.textContent=t.leaked(count); }
+    else{ r.className='result show safe'; r.textContent=t.safe; }
+  }catch(e){
+    r.className='result show err'; r.textContent=t.err;
+  }finally{ btn.disabled=false; }
+}
+
+/* ============ اللغة والأحداث ============ */
+function setLang(l){
+  lang=l;
+  document.documentElement.lang=l;
+  document.documentElement.dir=l==='ar'?'rtl':'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(e=>{
+    const v=I[l][e.dataset.i18n];
+    if(v!==undefined) e.innerHTML=v;
+  });
+  $('langBtn').textContent=l==='ar'?'EN':'عربي';
+  $('breachResult').className='result';
+  render();
+}
+$('langBtn').onclick=()=>setLang(lang==='ar'?'en':'ar');
+$('pw').addEventListener('input',render);
+$('toggle').onclick=()=>{ const p=$('pw'); p.type=p.type==='password'?'text':'password'; };
+$('breachBtn').onclick=checkBreach;
+render();
+</script>
+</body>
+</html>
